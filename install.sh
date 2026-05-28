@@ -57,9 +57,16 @@ if ! command -v tailscale >/dev/null 2>&1; then
   exit 1
 fi
 
-TAILNET_IP="$(tailscale ip -4 2>/dev/null | head -n1 || true)"
+TAILNET_IP="$(tailscale ip -4 2>/dev/null | head -n1 | tr -d '[:space:]')"
 if [ -z "$TAILNET_IP" ]; then
-  red "Tailscale is not connected. Run 'sudo tailscale up' first."
+  red "Tailscale didn't return an IPv4 address."
+  red "    Check:  tailscale status   then   tailscale ip -4"
+  red "    Make sure 'sudo tailscale up' has been run on this box."
+  exit 1
+fi
+if ! [[ "$TAILNET_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  red "tailscale ip -4 returned something unexpected: '$TAILNET_IP'"
+  red "    Refusing to bind to a malformed address (would risk binding 0.0.0.0)."
   exit 1
 fi
 green "    Tailscale IP: $TAILNET_IP"
@@ -77,9 +84,10 @@ if [ "$PYTHON_MAJOR" -lt 3 ] || { [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR"
 fi
 green "    Python: $PYTHON_VERSION"
 
-if ! python3 -m venv --help >/dev/null 2>&1; then
-  red "python3-venv missing. Install with:"
-  red "    sudo apt install python3-venv"
+if ! python3 -c 'import ensurepip' >/dev/null 2>&1; then
+  red "python3-venv missing (ensurepip unavailable). Install with:"
+  red "    sudo apt install -y python${PYTHON_VERSION}-venv"
+  red "Then re-run this installer."
   exit 1
 fi
 green "    python3-venv: ok"
@@ -141,7 +149,12 @@ fi
 chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 blue "==> Creating venv + installing deps"
-if [ ! -d "$INSTALL_DIR/.venv" ]; then
+# Recreate the venv if it's missing OR broken (no pip = failed previous run).
+if [ ! -x "$INSTALL_DIR/.venv/bin/pip" ]; then
+  if [ -d "$INSTALL_DIR/.venv" ]; then
+    yellow "    Cleaning broken venv from previous run"
+    rm -rf "$INSTALL_DIR/.venv"
+  fi
   sudo -u "$SERVICE_USER" python3 -m venv "$INSTALL_DIR/.venv"
 fi
 sudo -u "$SERVICE_USER" "$INSTALL_DIR/.venv/bin/pip" install --quiet --upgrade pip
