@@ -154,6 +154,18 @@ colleague**, not as an attacker. It prevents:
 
 ### What it does NOT guard
 
+- **Info-disclosure via "read-only" commands**. This bit us once:
+  `docker inspect <container>` is read-only by intent, but its
+  output includes `Config.Env` — every secret the container was
+  launched with, in plaintext. The fix in this repo (2026-05-28)
+  was to drop `docker inspect *` entirely and only allow
+  `docker inspect --format '<safe-field>' *`. Apply the same
+  scrutiny to any new pattern: ask not just "does this mutate
+  state?" but "does its output expose secrets, tokens, keys, or
+  PII?" Other known offenders to NEVER allowlist as wildcards:
+  `docker compose config` (expands env into YAML), `printenv`,
+  `env`, `journalctl -o verbose --grep=KEY=`, `sudo systemctl
+  show *` (dumps environment).
 - **SQL injection via the agent**. A pattern like
   `psql -c 'SELECT *'` will match
   `psql -c 'SELECT 1; DROP TABLE proposals;--'` because fnmatch's

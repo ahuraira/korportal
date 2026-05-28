@@ -46,14 +46,13 @@ commands:
       - "docker compose logs *"
 
   - name: compose-config
-    description: Inspect resolved compose config
+    description: List service names only (full `config` would expand env vars into plaintext — DO NOT add it back)
     risk: read
     patterns:
-      - "docker compose config"
-      - "docker compose config *"
+      - "docker compose config --services"
 
   - name: docker-info
-    description: Read-only docker introspection
+    description: Read-only docker introspection — no env, no secrets
     risk: read
     patterns:
       - "docker ps"
@@ -63,9 +62,26 @@ commands:
       - "docker info"
       - "docker stats --no-stream"
       - "docker stats --no-stream *"
-      - "docker inspect *"
       - "docker network ls"
       - "docker volume ls"
+
+  - name: docker-state
+    description: |
+      Container lifecycle (status, uptime, restarts, OOM, log path).
+      WARNING: `docker inspect *` was REMOVED from the allowlist on
+      2026-05-28 because it returns the container's full env array
+      including secrets. Only the format-scoped patterns below are
+      allowed — they expose state without env. Never widen this to
+      `{{.Config.Env}}` or `{{.}}` or `{{json .Config}}`.
+    risk: read
+    patterns:
+      - "docker inspect --format '{{.State.Status}}' *"
+      - "docker inspect --format '{{json .State}}' *"
+      - "docker inspect --format '{{.RestartCount}}' *"
+      - "docker inspect --format '{{.LogPath}}' *"
+      - "docker inspect --format '{{.State.StartedAt}}' *"
+      - "docker inspect --format '{{.State.Health.Status}}' *"
+      - "docker inspect --format '{{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}} oom={{.State.OOMKilled}}' *"
 
   # ─── Redis ────────────────────────────────────────────────────────
 
