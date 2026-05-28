@@ -39,11 +39,17 @@ commands:
       - "docker compose top *"
 
   - name: compose-logs
-    description: Tail logs for a service
+    description: Tail logs for a service (requires WORK_DIR to point at the compose project dir)
     risk: read
     patterns:
       - "docker compose logs"
       - "docker compose logs *"
+
+  - name: docker-logs
+    description: Tail container logs via the docker daemon — bypasses the compose cwd requirement, deploy user reaches this through its docker group membership
+    risk: read
+    patterns:
+      - "docker logs *"
 
   - name: compose-config
     description: List service names only (full `config` would expand env vars into plaintext — DO NOT add it back)
