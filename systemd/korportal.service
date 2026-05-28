@@ -1,0 +1,40 @@
+[Unit]
+Description=korportal — diagnostic MCP server (Tailscale-only)
+Documentation=file:///opt/korportal/README.md
+After=network-online.target tailscaled.service docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+Group=__SERVICE_USER__
+WorkingDirectory=/opt/korportal
+
+# Bind to the Tailscale interface IP only — never 0.0.0.0
+Environment="KORPORTAL_BIND_HOST=__TAILSCALE_IP__"
+Environment="KORPORTAL_BIND_PORT=7800"
+Environment="KORPORTAL_WORK_DIR=/srv/korcrm"
+Environment="KORPORTAL_AUDIT_LOG=/var/log/korportal/audit.log"
+Environment="KORPORTAL_TRANSPORT=sse"
+
+ExecStart=/opt/korportal/.venv/bin/python /opt/korportal/server.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+
+# Hardening — service runs unprivileged + sandboxed
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/log/korportal
+
+# The service user must be in the `docker` group to talk to
+# /var/run/docker.sock for `docker compose` commands.
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,241 @@
+# korportal allowlist
+# =================================================================
+#
+# Each entry defines one or more shell glob patterns. The MCP server
+# will only `exec` commands matching at least one pattern in this
+# file.
+#
+# Pattern syntax: fnmatch glob.
+#   *      matches anything (including spaces)
+#   ?      matches one char
+#   [abc]  matches one of a, b, c
+#
+# Risk tags (documentation only, not enforced):
+#   read   — observation only, no state change
+#   write  — mutates server state (use sparingly; consider keeping
+#            write tools OUT of your client's permissions.allow so
+#            they still prompt)
+#
+# Reloading:
+#   - Server hot-reloads on next call when this file changes
+#   - For an immediate reload: sudo systemctl reload korportal
+#
+# Validation:
+#   - Run `python test_patterns.py` to verify your patterns match
+#     the commands you expect and reject the ones you don't
+# =================================================================
+
+commands:
+
+  # ─── Docker / Compose ────────────────────────────────────────────
+
+  - name: compose-status
+    description: List running containers, ports, health
+    risk: read
+    patterns:
+      - "docker compose ps"
+      - "docker compose ps *"
+      - "docker compose top"
+      - "docker compose top *"
+
+  - name: compose-logs
+    description: Tail logs for a service
+    risk: read
+    patterns:
+      - "docker compose logs"
+      - "docker compose logs *"
+
+  - name: compose-config
+    description: Inspect resolved compose config
+    risk: read
+    patterns:
+      - "docker compose config"
+      - "docker compose config *"
+
+  - name: docker-info
+    description: Read-only docker introspection
+    risk: read
+    patterns:
+      - "docker ps"
+      - "docker ps *"
+      - "docker images"
+      - "docker version"
+      - "docker info"
+      - "docker stats --no-stream"
+      - "docker stats --no-stream *"
+      - "docker inspect *"
+      - "docker network ls"
+      - "docker volume ls"
+
+  # ─── Redis ────────────────────────────────────────────────────────
+
+  - name: redis-info
+    description: Redis server stats (memory, clients, persistence, etc.)
+    risk: read
+    patterns:
+      - "docker compose exec -T redis redis-cli INFO"
+      - "docker compose exec -T redis redis-cli INFO *"
+      - "docker compose exec -T redis redis-cli CONFIG GET *"
+      - "docker compose exec -T redis redis-cli DBSIZE"
+      - "docker compose exec -T redis redis-cli CLIENT LIST"
+      - "docker compose exec -T redis redis-cli CLIENT INFO"
+      - "docker compose exec -T redis redis-cli LATENCY *"
+
+  - name: redis-keys-readonly
+    description: Inspect keys without mutating
+    risk: read
+    patterns:
+      - "docker compose exec -T redis redis-cli --scan"
+      - "docker compose exec -T redis redis-cli --scan *"
+      - "docker compose exec -T redis redis-cli TYPE *"
+      - "docker compose exec -T redis redis-cli TTL *"
+      - "docker compose exec -T redis redis-cli PTTL *"
+      - "docker compose exec -T redis redis-cli OBJECT ENCODING *"
+      - "docker compose exec -T redis redis-cli MEMORY USAGE *"
+      - "docker compose exec -T redis redis-cli GET *"
+      - "docker compose exec -T redis redis-cli HGETALL *"
+      - "docker compose exec -T redis redis-cli HKEYS *"
+      - "docker compose exec -T redis redis-cli HLEN *"
+      - "docker compose exec -T redis redis-cli LRANGE * * *"
+      - "docker compose exec -T redis redis-cli LLEN *"
+      - "docker compose exec -T redis redis-cli SMEMBERS *"
+      - "docker compose exec -T redis redis-cli SCARD *"
+      - "docker compose exec -T redis redis-cli ZRANGE * * *"
+      - "docker compose exec -T redis redis-cli ZCARD *"
+
+  # ─── PostgreSQL ───────────────────────────────────────────────────
+  # WARNING: SQL injection is NOT prevented here. A pattern like
+  #   "psql -c 'SELECT *'"
+  # will match
+  #   "psql -c 'SELECT 1; DROP TABLE proposals;--'"
+  # because fnmatch's `*` is greedy. The allowlist prevents
+  # accidents from the AGENT, not adversarial inputs. Treat the
+  # agent as a trusted-but-imperfect colleague, not an attacker.
+
+  - name: psql-select
+    description: Read-only SQL — SELECT, EXPLAIN, WITH
+    risk: read
+    patterns:
+      - "docker compose exec -T postgres psql -U ces_app -d ces_production -c 'SELECT *'"
+      - "docker compose exec -T postgres psql -U ces_app -d ces_production -c 'EXPLAIN *'"
+      - "docker compose exec -T postgres psql -U ces_app -d ces_production -c 'WITH *'"
+      - 'docker compose exec -T postgres psql -U ces_app -d ces_production -c "SELECT *"'
+      - 'docker compose exec -T postgres psql -U ces_app -d ces_production -c "EXPLAIN *"'
+      - 'docker compose exec -T postgres psql -U ces_app -d ces_production -c "WITH *"'
+
+  - name: psql-meta
+    description: Schema introspection via psql backslash commands
+    risk: read
+    patterns:
+      - "docker compose exec -T postgres psql -U ces_app -d ces_production -c '\\dt*'"
+      - "docker compose exec -T postgres psql -U ces_app -d ces_production -c '\\d *'"
+      - "docker compose exec -T postgres psql -U ces_app -d ces_production -c '\\d+ *'"
+      - "docker compose exec -T postgres psql -U ces_app -d ces_production -c '\\l'"
+      - "docker compose exec -T postgres psql -U ces_app -d ces_production -c '\\du'"
+      - "docker compose exec -T postgres psql -U ces_app -d ces_production -c '\\dn'"
+
+  # ─── System health ────────────────────────────────────────────────
+
+  - name: system-stats
+    description: Quick snapshot of host health
+    risk: read
+    patterns:
+      - "uptime"
+      - "free -h"
+      - "free -m"
+      - "df -h"
+      - "df -h *"
+      - "vmstat"
+      - "vmstat *"
+      - "ps aux"
+      - "ps -ef"
+      - "lscpu"
+      - "uname -a"
+
+  - name: systemctl-status
+    description: Read systemd unit status
+    risk: read
+    patterns:
+      - "systemctl status"
+      - "systemctl status *"
+      - "systemctl is-active *"
+      - "systemctl is-enabled *"
+      - "systemctl list-units"
+      - "systemctl list-units *"
+      - "systemctl list-units --failed"
+      - "systemctl list-timers"
+
+  - name: journalctl-read
+    description: Read systemd journal
+    risk: read
+    patterns:
+      - "journalctl -u *"
+      - "journalctl -u * --since=*"
+      - "journalctl -u * -n *"
+      - "journalctl -u * --no-pager"
+      - "journalctl -u * --no-pager -n *"
+      - "journalctl -u * --no-pager --since=*"
+      - "journalctl --since=* --until=*"
+
+  - name: tailscale-status
+    description: Tailscale state inspection
+    risk: read
+    patterns:
+      - "tailscale status"
+      - "tailscale status *"
+      - "tailscale ip"
+      - "tailscale ip *"
+      - "tailscale ping *"
+      - "tailscale netcheck"
+      - "tailscale version"
+
+  - name: network-readonly
+    description: Network inspection
+    risk: read
+    patterns:
+      - "ss -tulpn"
+      - "ss -tlnp"
+      - "ss -anp"
+      - "ip a"
+      - "ip addr"
+      - "ip route"
+      - "curl -sS -o /dev/null -w * https://*"
+      - "curl -sS -o /dev/null -w * http://localhost:*"
+
+  # ─── Search / read text files ────────────────────────────────────
+  # Prefer the `read_file` tool over `cat` — it's structured.
+  # These patterns are for ad-hoc grep/find sweeps.
+
+  - name: text-search
+    description: grep / find for ad-hoc inspection
+    risk: read
+    patterns:
+      - "grep *"
+      - "grep -r *"
+      - "grep -rn *"
+      - "grep -E *"
+      - "find /srv/korcrm *"
+      - "find /var/log *"
+      - "find /etc/caddy *"
+      - "ls *"
+
+  - name: head-tail
+    description: head/tail on files (read-only)
+    risk: read
+    patterns:
+      - "head *"
+      - "head -n * *"
+      - "tail *"
+      - "tail -n * *"
+      - "wc -l *"
+
+  # ─── Hot-reload (write) ───────────────────────────────────────────
+  # Example of a write-class allowlist entry. Keep this OUT of your
+  # client's permissions.allow so it still prompts every time.
+
+  - name: caddy-reload
+    description: Hot-reload Caddy config without dropping connections
+    risk: write
+    patterns:
+      - "docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile"
+      - "docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile"
