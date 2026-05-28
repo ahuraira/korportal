@@ -119,7 +119,7 @@ fi
 
 SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-for f in server.py allowlist.yaml requirements.txt systemd/korportal.service; do
+for f in server.py allowlist.yaml requirements.txt test_patterns.py systemd/korportal.service; do
   if [ ! -f "$SOURCE_DIR/$f" ]; then
     red "Missing source file: $SOURCE_DIR/$f"
     exit 1
@@ -136,6 +136,8 @@ install -m 0644 -o "$SERVICE_USER" -g "$SERVICE_USER" \
   "$SOURCE_DIR/server.py" "$INSTALL_DIR/server.py"
 install -m 0644 -o "$SERVICE_USER" -g "$SERVICE_USER" \
   "$SOURCE_DIR/requirements.txt" "$INSTALL_DIR/requirements.txt"
+install -m 0755 -o "$SERVICE_USER" -g "$SERVICE_USER" \
+  "$SOURCE_DIR/test_patterns.py" "$INSTALL_DIR/test_patterns.py"
 
 # Don't overwrite an edited allowlist on re-install
 if [ -f "$INSTALL_DIR/allowlist.yaml" ]; then
