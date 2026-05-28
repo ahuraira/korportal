@@ -149,13 +149,30 @@ fi
 chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 blue "==> Creating venv + installing deps"
-# Recreate the venv if it's missing OR broken (no pip = failed previous run).
-if [ ! -x "$INSTALL_DIR/.venv/bin/pip" ]; then
+# A venv is "usable" only if pip actually runs. Checking the executable
+# bit isn't enough — a previous failed `python3 -m venv` can leave a pip
+# script with a dangling shebang that's marked executable but won't run.
+if ! "$INSTALL_DIR/.venv/bin/pip" --version >/dev/null 2>&1; then
   if [ -d "$INSTALL_DIR/.venv" ]; then
     yellow "    Cleaning broken venv from previous run"
     rm -rf "$INSTALL_DIR/.venv"
   fi
   sudo -u "$SERVICE_USER" python3 -m venv "$INSTALL_DIR/.venv"
+  # Belt + suspenders: if venv creation finished without producing a
+  # working pip, fail loudly with a diagnostic instead of the cryptic
+  # "command not found" downstream.
+  if ! "$INSTALL_DIR/.venv/bin/pip" --version >/dev/null 2>&1; then
+    red "    Venv finished but pip isn't runnable at:"
+    red "        $INSTALL_DIR/.venv/bin/pip"
+    red ""
+    red "    Probably means ensurepip is unavailable for the python3 that"
+    red "    '$SERVICE_USER' resolves to. Verify with:"
+    red "        sudo -u $SERVICE_USER which python3"
+    red "        sudo -u $SERVICE_USER python3 -c 'import ensurepip'"
+    red ""
+    red "    Fix: sudo apt install -y python${PYTHON_VERSION}-venv"
+    exit 1
+  fi
 fi
 sudo -u "$SERVICE_USER" "$INSTALL_DIR/.venv/bin/pip" install --quiet --upgrade pip
 sudo -u "$SERVICE_USER" "$INSTALL_DIR/.venv/bin/pip" install --quiet -r "$INSTALL_DIR/requirements.txt"
