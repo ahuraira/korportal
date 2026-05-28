@@ -18,9 +18,14 @@ Environment="KORPORTAL_AUDIT_LOG=/var/log/korportal/audit.log"
 Environment="KORPORTAL_TRANSPORT=sse"
 
 ExecStart=/opt/korportal/.venv/bin/python /opt/korportal/server.py
-ExecReload=/bin/kill -HUP $MAINPID
+# No ExecReload: the server already hot-reloads allowlist.yaml on
+# file mtime change. Sending SIGHUP via `systemctl reload` would kill
+# uvicorn (it doesn't trap HUP) — use `systemctl restart` for env
+# var or unit changes instead.
 Restart=on-failure
 RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 # Hardening — service runs unprivileged + sandboxed
 NoNewPrivileges=true

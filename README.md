@@ -113,7 +113,7 @@ on the next call when the file mtime changes. For an immediate
 reload:
 
 ```bash
-sudo systemctl reload korportal
+sudo systemctl restart korportal
 ```
 
 Pattern syntax is `fnmatch` glob:
