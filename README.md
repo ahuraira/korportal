@@ -10,7 +10,7 @@ and without copy/pasting log lines back and forth.
 ```
 [ claude-code on your laptop ]
             │
-            │ MCP over SSE on Tailscale
+            │ MCP over streamable-http on Tailscale
             ▼
 [ korportal on prod, bound to 100.x.x.x:7800 only ]
             │
@@ -80,8 +80,8 @@ tail -f /var/log/korportal/audit.log
 Once Tailscale is connected on your laptop too:
 
 ```bash
-claude mcp add korportal --transport sse \
-  --url http://<prod-tailscale-name>:7800/sse
+claude mcp add korportal --transport http \
+  --url http://<prod-tailscale-name>:7800/mcp
 ```
 
 Then, in your repo's `.claude/settings.local.json`, allow the tools
@@ -233,7 +233,7 @@ KORPORTAL_AUDIT_LOG=/tmp/korportal-audit.log \
 ```
 
 Then add it as an MCP server pointing at
-`http://127.0.0.1:7800/sse`.
+`http://127.0.0.1:7800/mcp`.
 
 ---
 
@@ -251,7 +251,7 @@ All optional, all via env vars:
 | `KORPORTAL_READ_ROOTS` | `/srv/korcrm:/etc/caddy:/var/log` | Colon-separated allowed read roots. |
 | `KORPORTAL_TIMEOUT_SEC` | `30` | Max wall time per `exec`. |
 | `KORPORTAL_MAX_BYTES` | `262144` | Max bytes per stream (stdout / stderr). |
-| `KORPORTAL_TRANSPORT` | `sse` | MCP transport (`sse` or `streamable-http`). |
+| `KORPORTAL_TRANSPORT` | `streamable-http` | MCP transport. `streamable-http` (default) makes every tool call a discrete request — no session state, no SSE keep-alive — so the client never sees `-32602 Invalid request parameters` after a network blip. `sse` is supported for clients that need it. |
 
 ---
 

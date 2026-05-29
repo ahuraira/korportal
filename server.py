@@ -162,6 +162,14 @@ mcp = FastMCP(
     "korportal",
     host=os.getenv("KORPORTAL_BIND_HOST", "127.0.0.1"),
     port=int(os.getenv("KORPORTAL_BIND_PORT", "7800")),
+    # `stateless_http=True` makes every tool call a discrete HTTP
+    # request — no session_id, no in-memory connection map, no SSE
+    # stream to die on a Tailscale blip. Removes the recurring
+    # `-32602 Invalid request parameters` failure mode where a stale
+    # session caused the client to look "connected" but every call
+    # rejected. Only meaningful when transport=streamable-http;
+    # ignored on stdio.
+    stateless_http=True,
 )
 
 
@@ -317,12 +325,20 @@ def read_file(path: str, max_lines: int = 500) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    transport = os.getenv("KORPORTAL_TRANSPORT", "sse")
+    # Default to streamable-http (MCP's newer transport): every tool
+    # call is one HTTP request, no SSE keep-alive needed. Combined
+    # with stateless_http=True above, this eliminates the "session
+    # appears connected but every call rejects" failure mode that
+    # SSE+session-state suffered from after any network blip.
+    #
+    # `sse` is still supported for clients that need it — set
+    # KORPORTAL_TRANSPORT=sse.
+    transport = os.getenv("KORPORTAL_TRANSPORT", "streamable-http")
     print(
         f"korportal {transport} bound to "
         f"{mcp.settings.host}:{mcp.settings.port} "
         f"(allowlist: {len(allowlist.entries)} entries, "
-        f"work_dir: {WORK_DIR})",
+        f"work_dir: {WORK_DIR}, stateless={mcp.settings.stateless_http})",
         file=sys.stderr,
     )
     mcp.run(transport=transport)

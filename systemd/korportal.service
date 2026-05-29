@@ -15,7 +15,7 @@ Environment="KORPORTAL_BIND_HOST=__TAILSCALE_IP__"
 Environment="KORPORTAL_BIND_PORT=7800"
 Environment="KORPORTAL_WORK_DIR=/srv/korcrm"
 Environment="KORPORTAL_AUDIT_LOG=/var/log/korportal/audit.log"
-Environment="KORPORTAL_TRANSPORT=sse"
+Environment="KORPORTAL_TRANSPORT=streamable-http"
 
 ExecStart=/opt/korportal/.venv/bin/python /opt/korportal/server.py
 # No ExecReload: the server already hot-reloads allowlist.yaml on

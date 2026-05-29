@@ -220,8 +220,8 @@ fi
 green ""
 green "==> korportal is running"
 echo
-echo "  Bind:         http://$TAILNET_IP:7800/sse"
-echo "  DNS:          http://$TAILNET_NAME:7800/sse"
+echo "  Bind:         http://$TAILNET_IP:7800/mcp"
+echo "  DNS:          http://$TAILNET_NAME:7800/mcp"
 echo "  Audit log:    $LOG_DIR/audit.log"
 echo "  Service:      systemctl status $SERVICE_NAME"
 echo "  Tail logs:    journalctl -u $SERVICE_NAME -f"
@@ -232,8 +232,8 @@ echo
 blue "On your laptop:"
 echo
 echo "  claude mcp add korportal \\"
-echo "    --transport sse \\"
-echo "    --url http://$TAILNET_NAME:7800/sse"
+echo "    --transport http \\"
+echo "    --url http://$TAILNET_NAME:7800/mcp"
 echo
 blue "Then optionally auto-allow the read-only tools in"
 blue "  .claude/settings.local.json:"
