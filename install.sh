@@ -192,7 +192,13 @@ sed -e "s|__SERVICE_USER__|$SERVICE_USER|g" \
     > "/etc/systemd/system/${SERVICE_NAME}.service"
 
 systemctl daemon-reload
-systemctl enable --now "$SERVICE_NAME"
+systemctl enable "$SERVICE_NAME"
+# Use `restart`, not `enable --now`: enable-now on an already-running
+# service is a no-op, so re-running install.sh after a code or env-var
+# change left the OLD process happily serving the OLD code. `restart`
+# is safe whether the unit was stopped (acts like start) or running
+# (replaces process) — correct semantics for an idempotent installer.
+systemctl restart "$SERVICE_NAME"
 
 # Give it a moment to bind
 sleep 2
